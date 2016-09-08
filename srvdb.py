@@ -1,3 +1,4 @@
+import random
 import sqlite3
 import threading
 
@@ -36,6 +37,7 @@ class SrvDb(object):
 
             # Add hash metadata to db
             self.cursor.execute("INSERT INTO nodes VALUES(?, ?, ?, ?)", (ip, up, price, url))
+            self.conn.commit()
 
             return True
 
@@ -46,6 +48,7 @@ class SrvDb(object):
         with db_rlock:
             query = "UPDATE nodes SET up=?, price=?, url=? WHERE ip=?"
             self.cursor.execute(query, (up, price, url, ip))
+            self.conn.commit()
 
         return True
 
@@ -72,10 +75,20 @@ class SrvDb(object):
         """
         with db_rlock:
 
-            # retrieve sorted node list
+            # retrieve sorted node list of "up" ips
             rows = []
             count = 0
+            cheapest_price = 0
             for row in self.cursor.execute("SELECT * FROM nodes WHERE up=1 ORDER BY price ASC"):
+
+                # Check to see if we are over the requested count
+                count = count + 1
+                if count > num_nodes:
+                    # If the next node we are looking at has a higher price, then we can bail.
+                    # Otherwize we will add it to the list for consideration.
+                    if int(row[2]) > cheapest_price:
+                        break
+
                 obj = {
                     'ip': row[0],
                     'up': row[1] > 0,
@@ -83,11 +96,10 @@ class SrvDb(object):
                     'url': row[3],
                 }
                 rows.append(obj)
-                count = count + 1
-                if count == num_nodes:
-                    break
+                cheapest_price = int(row[2])
 
-            return rows
+            # Return a random subset of the cheapest nodes (count of num_nodes)
+            return random.sample(rows, num_nodes)
 
     def delete_node(self, ip):
         """
@@ -96,3 +108,4 @@ class SrvDb(object):
         with db_rlock:
 
             self.cursor.execute("DELETE FROM nodes WHERE ip = ?", (ip))
+            self.conn.commit()

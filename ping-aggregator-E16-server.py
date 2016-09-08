@@ -10,6 +10,7 @@ import yaml
 from threading import Thread
 import srvdb
 import requests as orig_requests
+import time
 
 from flask import Flask
 from flask import request
@@ -35,7 +36,7 @@ payment = Payment(app, wallet)
 logger = logging.getLogger('werkzeug')
 
 # db handle
-db = srvdb.SrvDb("/home/james/ping-aggregator.db")
+db = srvdb.SrvDb("./ping-aggregator.db")
 
 
 @app.route('/manifest')
@@ -51,28 +52,63 @@ def get_payment_amt(request):
     """
     Return the amount of the request based on the number of nodes.
     """
+    print(request.data)
+    user_input = json.loads(request.data.decode('UTF-8'))
     cost = 1000
-    nodes = db.get_cheapest_nodes(request.args.get('nodes'))
+    nodes = db.get_cheapest_nodes(user_input['nodes'])
     for node in nodes:
         cost = cost + node['price']
 
     return cost
 
 
-@app.route('/')
+@app.route('/', methods=['POST'])
 @payment.required(get_payment_amt)
 def ping():
     """
     Gets the cheapest X nodes running ping21 and runs them against the url specified.
     """
-    nodes = db.get_cheapest_nodes(request.args.get('nodes'))
+    user_input = json.loads(request.data.decode('UTF-8'))
+    if 'nodes' not in user_input:
+        ret_obj = {'success': False, "message": "Missing nodes parameter in post data."}
+        ret = json.dumps(ret_obj, indent=2)
+        return (ret, 200, {'Content-length': len(ret), 'Content-type': 'application/json'})
+
+    if 'website' not in user_input:
+        ret_obj = {'success': False, "message": "Missing website parameter in post data."}
+        ret = json.dumps(ret_obj, indent=2)
+        return (ret, 200, {'Content-length': len(ret), 'Content-type': 'application/json'})
+
+    # Get the amount of nodes the user requested + 10 in case one of them fails
+    requested_count = user_input['nodes']
+    nodes = db.get_cheapest_nodes(requested_count + 10)
+
+    # Iterate over the nodes returned from the DB
     vals = []
+    successful_requests = 0
     for node in nodes:
+
+        # If we have already found as many nodes as the user requested, bail out
+        if successful_requests >= requested_count:
+            break
+
         try:
-            ret = requests.get(node['url'])
-            vals.append(ret.text)
-        except:
-            vals.append("Request failed for node: {}".format(node['ip']))
+            # Get the ping data from the node.
+            # Use the uri from the user in the request.
+            # Use the maxprice from the db (last time we saw it), so we don't get suckered.
+            ret = requests.get(node['url'] + "?uri=" + user_input['website'], max_price=node['price'])
+
+            # Save off the return value in the array
+            ret_obj = ret.json()
+            ret_obj['success'] = True
+            ret_obj['price_paid'] = node['price']
+            vals.append(ret_obj)
+
+            # Update the success count
+            successful_requests = successful_requests + 1
+
+        except Exception as err:
+            logger.error("Failure: {0}".format(err))
 
     ret = json.dumps(vals, indent=2)
     return (ret, 200, {'Content-length': len(ret), 'Content-type': 'application/json'})
@@ -82,65 +118,69 @@ def gather_ping_node_stats():
     """
     Iterates over nodes and updates the prices and status.
     """
-    nodes = db.get_node_ips()
-    for node in nodes:
-        logger.info("\n\nChecking for ping server on {}".format(node))
-        node_up = False
+    while True:
+        # Sleep for 8 hours before reloading the node stats
+        time.sleep(60 * 60 * 8)
 
-        # First try port 6002
-        url = "http://{}:6002/".format(node)
-        manifest_url = url + "manifest"
-        try:
-            # If the manifest comes back, if it is running ping21 then it is up
-            logger.info("Checking on port 6002 with url: {}".format(manifest_url))
-            manifest = orig_requests.get(manifest_url)
-            logger.debug("Got back the manifest")
-
-            if "ping21" in manifest.text:
-                node_up = True
-                logger.debug("Ping21 is running on 6002 on this node")
-            else:
-                logger.debug("Ping21 was not found in the manifest")
-        except:
+        nodes = db.get_node_ips()
+        for node in nodes:
+            logger.info("\n\nChecking for ping server on {}".format(node))
             node_up = False
 
-        # Not found on standard node, see if it is running as a microservice
-        if not node_up:
-            url = "http://{}:8080/ping/".format(node)
+            # First try port 6002
+            url = "http://{}:6002/".format(node)
             manifest_url = url + "manifest"
             try:
                 # If the manifest comes back, if it is running ping21 then it is up
-                logger.debug("Checking on port 8080")
-                manifest = orig_requests.get(manifest_url)
+                logger.info("Checking on port 6002 with url: {}".format(manifest_url))
+                manifest = orig_requests.get(manifest_url, timeout=1)
                 logger.debug("Got back the manifest")
 
                 if "ping21" in manifest.text:
                     node_up = True
-                    logger.debug("Ping21 is running on 8080 on this node")
+                    logger.debug("Ping21 is running on 6002 on this node")
                 else:
-                    logger.debug("Ping21 was not found on this node")
+                    logger.debug("Ping21 was not found in the manifest")
             except:
                 node_up = False
 
-        # if we didn't find the ping21 service, mark the node as down
-        if not node_up:
-            logger.debug("Marking this node as down since Ping21 was not found")
-            db.update_node(node, False, 0, "")
-            continue
+            # Not found on standard node, see if it is running as a microservice
+            if not node_up:
+                url = "http://{}:8080/ping/".format(node)
+                manifest_url = url + "manifest"
+                try:
+                    # If the manifest comes back, if it is running ping21 then it is up
+                    logger.debug("Checking on port 8080")
+                    manifest = orig_requests.get(manifest_url, timeout=1)
+                    logger.debug("Got back the manifest")
 
-        # We found the node and it is running ping21, so hit the endpoint to get the price
-        try:
-            # If the manifest comes back, if it is running ping21 then it is up
-            logger.debug("Getting ping url: {}".format(url))
-            ping_res = orig_requests.get(url)
+                    if "ping21" in manifest.text:
+                        node_up = True
+                        logger.debug("Ping21 is running on 8080 on this node")
+                    else:
+                        logger.debug("Ping21 was not found on this node")
+                except:
+                    node_up = False
 
-            price = int(ping_res.headers['Price'])
-            db.update_node(node, True, price, url)
-            logger.debug("Updated the price from the endpoint: {}".format(price))
+            # if we didn't find the ping21 service, mark the node as down
+            if not node_up:
+                logger.debug("Marking this node as down since Ping21 was not found")
+                db.update_node(node, False, 0, "")
+                continue
 
-        except Exception as err:
-            logger.error("Failure: {0}".format(err))
-            db.update_node(node, False, 0, url)
+            # We found the node and it is running ping21, so hit the endpoint to get the price
+            try:
+                # If the manifest comes back, if it is running ping21 then it is up
+                logger.debug("Getting ping url: {}".format(url))
+                ping_res = orig_requests.get(url)
+
+                price = int(ping_res.headers['Price'])
+                db.update_node(node, True, price, url)
+                logger.debug("Updated the price from the endpoint: {}".format(price))
+
+            except Exception as err:
+                logger.error("Failure: {0}".format(err))
+                db.update_node(node, False, 0, url)
 
 
 if __name__ == '__main__':

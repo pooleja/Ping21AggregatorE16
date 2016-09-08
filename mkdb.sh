@@ -1,6 +1,6 @@
 #!/bin/sh
 
-FN='/home/james/ping-aggregator.db'
+FN='./ping-aggregator.db'
 
 if [ -f $FN ]
 then
