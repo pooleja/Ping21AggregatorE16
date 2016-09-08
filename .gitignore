@@ -2,3 +2,4 @@ __pycache__
 
 *.pid
 *.db
+saved_ips.txt
