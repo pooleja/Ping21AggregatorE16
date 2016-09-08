@@ -26,7 +26,7 @@ username = Config().username
 requests = BitTransferRequests(wallet, username)
 
 app = Flask(__name__)
-# app.debug = True
+app.debug = True
 
 # setup wallet
 wallet = Wallet()
@@ -98,10 +98,15 @@ def ping():
             # Use the maxprice from the db (last time we saw it), so we don't get suckered.
             ret = requests.get(node['url'] + "?uri=" + user_input['website'], max_price=node['price'])
 
-            # Save off the return value in the array
+            # Get the json for the response
             ret_obj = ret.json()
-            ret_obj['success'] = True
             ret_obj['price_paid'] = node['price']
+
+            # Strip out sensitive info
+            del ret_obj['server']['ip']
+            del ret_obj['server']['hostname']
+
+            # Save it off
             vals.append(ret_obj)
 
             # Update the success count
