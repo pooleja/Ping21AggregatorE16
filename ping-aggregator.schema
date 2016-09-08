@@ -1,0 +1,6 @@
+CREATE TABLE nodes (
+	ip		TEXT PRIMARY KEY,
+  up		INTEGER,
+  price	INTEGER,
+  url		TEXT
+);
