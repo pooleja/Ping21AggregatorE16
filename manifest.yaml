@@ -1,32 +1,39 @@
-basePath: /
-definitions:
-  Server:
-    properties:
-      city: {type: string}
-      provider: {type: string}
-      public_ip: {type: string}
-      state: {type: string}
-      zip_code: {type: string}
-    type: object
-host: 10.244.119.122:7017
-info:
-  contact: {email: james@esixteen.co, name: eSixteen.co }
-  description: Get machine revenue stats on demand for bitcoin.
-  title: RevE16
-  x-21-category: utilities
-  x-21-github-project-url: https://github.com/pooleja/StatsE16
-  x-21-keywords: [stats, revenue, bitcoin, money, statistics]
-  x-21-quick-buy: "$ 21 buy http://10.244.119.122:7017/"
-  x-21-total-price: {max: 100, min: 100}
-paths:
-  /:
-    get:
-      consumes: [application/x-www-form-urlencoded]
-      produces: [application/json]
-      responses:
-        200:
-          description: Stats for the revenue of the server.
-      summary: Returns stats about the device.
-schemes: [http]
+# Swagger definition for the TranscodeE16 Manifest
 swagger: '2.0'
+
+# Metadata
+info:
+  version: "0.0.1"
+  title: Ping21AggregatorE16
+  description: 'An aggregator that selects Ping21 nodes based on lowest price.  It charges node cost plus 1,000 satoshis per call.'
+  termsOfService: https://opensource.org/licenses/MIT
+  contact:
+    email: james@esixteen.co
+    name: eSixteen.co
+    url: https://www.esixteen.co/
+  x-21-usage: 'Request the number of nodes you would like to ping a specified website.'
+  x-21-quick-buy: "$ 21 buy http://10.244.113.158:7018/ --data '{\"nodes\": 3, \"website\": \"bitcoin.org\"}'"
+  x-21-category: utilities
+  x-21-github-profile-url: https://github.com/pooleja
+  x-21-github-project-url: https://github.com/pooleja/Ping21AggregatorE16
+  x-21-keywords: [ping, ping21, aggregator, service, host, register, ip, uptime]
+  x-21-total-price:
+     min: 1000
+     max: 10000
+host: 10.244.113.158
+schemes:
+   - http
+basePath: /
 x-21-manifest-path: /manifest
+
+# Available paths for the app
+paths:
+  /manifest:
+    get:
+      description: Gets the `manifest` of the application.
+
+      # Expected responses for this operation:
+      responses:
+        # Response code
+        200:
+          description: Successfully found the manifest YAML file and returned it to client.
