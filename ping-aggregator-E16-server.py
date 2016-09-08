@@ -26,7 +26,7 @@ username = Config().username
 requests = BitTransferRequests(wallet, username)
 
 app = Flask(__name__)
-app.debug = True
+# app.debug = True
 
 # setup wallet
 wallet = Wallet()
