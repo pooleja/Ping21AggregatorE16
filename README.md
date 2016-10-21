@@ -9,7 +9,7 @@ You want to ping bitcoin.org and get stats about the latency.  You can run this 
 ```
 $ 21 buy http://10.244.113.158:7018/ --data '{"nodes": 2, "website": "bitcoin.org"}'
 ```
-You will get the following stats from the 3 nodes:
+You will get the following stats from the 2 nodes:
 ```
 [
     {
