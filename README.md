@@ -7,7 +7,7 @@ cost charged by all the Ping21 nodes plus 1,000 satoshis for the aggregation ser
 ### Example Usage
 You want to ping bitcoin.org and get stats about the latency.  You can run this command to get ping stats with 2 nodes:
 ```
-$ 21 buy http://10.244.113.158:7018/ --data '{"nodes": 2, "website": "bitcoin.org"}'
+$ 21 buy http://[fcce:a977:eec7:c71c:1c43:0000:0000:0001]:7018/ --data '{"nodes": 2, "website": "bitcoin.org"}'
 ```
 You will get the following stats from the 2 nodes:
 ```
