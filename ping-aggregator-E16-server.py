@@ -38,21 +38,11 @@ logger = logging.getLogger('werkzeug')
 # db handle
 db = srvdb.SrvDb("./ping-aggregator.db")
 
-
-@app.route('/manifest')
-def manifest():
-    """Provide the app manifest to the 21 crawler.
-    """
-    with open('./manifest.yaml', 'r') as f:
-        manifest = yaml.load(f)
-    return json.dumps(manifest)
-
-
 def get_payment_amt(request):
     """
     Return the amount of the request based on the number of nodes.
     """
-    print(request.data)
+    # print(request.data)
     user_input = json.loads(request.data.decode('UTF-8'))
     cost = 1000
     nodes = db.get_cheapest_nodes(user_input['nodes'])
@@ -225,6 +215,6 @@ if __name__ == '__main__':
             cleaner.start()
 
             print("Server running...")
-            app.run(host='0.0.0.0', port=7018)
+            app.run(host='::', port=7018)
 
     run()
